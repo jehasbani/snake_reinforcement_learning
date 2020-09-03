@@ -29,10 +29,10 @@ class Agent():
 
     def network(self):
         model = Sequential()
-        model.add(Dense(output_dim=self.first_layer, activation='relu', input_dim=11))
+        model.add(Dense(output_dim=self.first_layer, activation='relu', input_dim=12))
         model.add(Dense(output_dim=self.second_layer, activation='relu'))
         model.add(Dense(output_dim=self.third_layer, activation='relu'))
-        model.add(Dense(output_dim=3, activation='softmax'))
+        model.add(Dense(output_dim=4, activation='softmax'))
         opt = Adam(self.learning_rate)
         model.compile(loss='mse', optimizer=opt)
 
@@ -69,19 +69,9 @@ class Agent():
         food_left = snake_head[0] < food.position[0]
         food_right = snake_head[0] > food.position[0]
 
-        state = [danger_up,
-                 danger_down,
-                 danger_left,
-                 danger_right,
-                 dir_up,
-                 dir_down,
-                 dir_left,
-                 dir_right,
-                 food_up,
-                 food_down,
-                 food_left,
-                 food_right
-                 ]
+        state = [danger_up, danger_down, danger_left, danger_right,
+                 dir_up, dir_down, dir_left, dir_right,
+                 food_up, food_down, food_left, food_right]
 
         for i in range(len(state)):
             if state[i]:
