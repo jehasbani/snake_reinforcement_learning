@@ -119,6 +119,7 @@ def main():
         drawGrid(surface)
         snake.move()
         if snake.get_head_position() == food.position:
+            print(snake.get_head_position(), food.position)
             snake.length += 1
             snake.score += 1
             food.randomize_position()
