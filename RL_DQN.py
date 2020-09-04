@@ -29,10 +29,10 @@ class Agent():
 
     def network(self):
         model = Sequential()
-        model.add(Dense(output_dim=self.first_layer, activation='relu', input_dim=12))
-        model.add(Dense(output_dim=self.second_layer, activation='relu'))
-        model.add(Dense(output_dim=self.third_layer, activation='relu'))
-        model.add(Dense(output_dim=4, activation='softmax'))
+        model.add(Dense(activation='relu', input_dim=12, units=self.first_layer))
+        model.add(Dense(activation='relu', units=self.second_layer))
+        model.add(Dense(activation='relu', units=self.third_layer))
+        model.add(Dense(activation='softmax', units=4))
         opt = Adam(self.learning_rate)
         model.compile(loss='mse', optimizer=opt)
 
@@ -46,20 +46,20 @@ class Agent():
 
         danger_up = (snake.direction == snake.up and
                      ((((snake_head[0] + (snake.up[0] * snake.step)) % game.width),
-                       (snake_head[1] + (snake.up[1] * self.step)) % game.height) in snake.positions or
-                      (snake_head[1] + (snake.up[1] * self.step)) % game.height >= game.height - self.step))
+                       (snake_head[1] + (snake.up[1] * snake.step)) % game.height) in snake.positions or
+                      (snake_head[1] + (snake.up[1] * snake.step)) % game.height >= game.height - snake.step))
         danger_down = (snake.direction == snake.down and
                        ((((snake_head[0] + (snake.down[0] * snake.step)) % game.width),
-                         (snake_head[1] + (snake.down[1] * self.step)) % game.height) in snake.positions or
-                        (snake_head[1] + (snake.down[1] * self.step)) % game.height <= self.step))
+                         (snake_head[1] + (snake.down[1] * snake.step)) % game.height) in snake.positions or
+                        (snake_head[1] + (snake.down[1] * snake.step)) % game.height <= snake.step))
         danger_left = (snake.direction == snake.left and
                        ((((snake_head[0] + (snake.left[0] * snake.step)) % game.width),
-                         (snake_head[1] + (snake.left[1] * self.step)) % game.height) in snake.positions or
-                        (snake_head[0] + (snake.left[0] * self.step)) % game.height <= self.step))
+                         (snake_head[1] + (snake.left[1] * snake.step)) % game.height) in snake.positions or
+                        (snake_head[0] + (snake.left[0] * snake.step)) % game.height <= snake.step))
         danger_right = (snake.direction == snake.right and
                         ((((snake_head[0] + (snake.right[0] * snake.step)) % game.width),
-                          (snake_head[1] + (snake.right[1] * self.step)) % game.height) in snake.positions or
-                         (snake_head[0] + (snake.right[0] * self.step)) % game.height >= game.width - self.step))
+                          (snake_head[1] + (snake.right[1] * snake.step)) % game.height) in snake.positions or
+                         (snake_head[0] + (snake.right[0] * snake.step)) % game.height >= game.width - snake.step))
         dir_up = snake.direction == snake.up
         dir_down = snake.direction == snake.down
         dir_left = snake.direction == snake.left
@@ -78,7 +78,7 @@ class Agent():
                 state[i] = 1
             else:
                 state[i] = 0
-
+        print(state)
         return np.asarray(state)
     
     def set_reward(self, snake, crash):
@@ -86,7 +86,7 @@ class Agent():
         if crash:
             self.reward = -10
             return self.reward
-        if snake.eaten:
+        if snake.has_eaten:
             self.reward = 10
         return self.reward
 
@@ -104,12 +104,12 @@ class Agent():
                 target = reward + self.gamma * np.amax(self.model.predict(np.array([next_state]))[0])
             target_f = self.model.predict(np.array([state]))
             target_f[0][np.argmax(action)] = target
-            self.model.fit(np.array([state]), target_f, epochs=1, verbose=0)
+            self.model.fit(np.array([state]), target_f, epochs=1, verbose=1)
 
     def train_short_memory(self, state, action, reward, next_state, done):
         target = reward
         if not done:
-            target = reward + self.gamma * np.amax(self.model.predict(next_state.reshape((1, 11)))[0])
-        target_f = self.model.predict(state.reshape((1, 11)))
+            target = reward + self.gamma * np.amax(self.model.predict(next_state.reshape((1, 12)))[0])
+        target_f = self.model.predict(state.reshape((1, 12)))
         target_f[0][np.argmax(action)] = target
-        self.model.fit(state.reshape((1, 11)), target_f, epochs=1, verbose=0)
+        self.model.fit(state.reshape((1, 12)), target_f, epochs=1, verbose=0)
