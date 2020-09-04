@@ -1,9 +1,8 @@
 import pygame
 import sys
 import random
-import numpy as np
-import seaborn as sns
-from random import randint
+import glob
+from PIL import Image
 
 
 class Game():
@@ -159,13 +158,11 @@ def main():
     snake = game.snake
     food = game.food
     record = 0
-
     while (True):
         clock.tick(10)
         snake.handle_action(food, game)
         record = get_record(game.score, record)
         display(snake, food, game, game.score, record)
         update_screen()
-
 
 main()
