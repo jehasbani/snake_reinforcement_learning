@@ -1,10 +1,9 @@
 from keras.optimizers import Adam
 from keras.models import Sequential
-from keras.layers.core import Dense, Dropout
+from keras.layers.core import Dense
 import random
 import numpy as np
 import pandas as pd
-from operator import add
 import collections
 
 
@@ -45,21 +44,21 @@ class Agent():
         snake_head = snake.get_head_position()
 
         danger_up = (snake.direction == snake.up and
-                     ((((snake_head[0] + (snake.up[0] * snake.step)) % game.width),
-                       (snake_head[1] + (snake.up[1] * snake.step)) % game.height) in snake.positions or
-                      (snake_head[1] + (snake.up[1] * snake.step)) % game.height >= game.height - snake.step))
+                     ((((snake_head[0] + (snake.up[0] * game.gridsize)) % game.width),
+                       (snake_head[1] + (snake.up[1] * game.gridsize)) % game.height) in snake.positions or
+                      (snake_head[1] + (snake.up[1] * game.gridsize)) % game.height >= game.height - game.gridsize))
         danger_down = (snake.direction == snake.down and
-                       ((((snake_head[0] + (snake.down[0] * snake.step)) % game.width),
-                         (snake_head[1] + (snake.down[1] * snake.step)) % game.height) in snake.positions or
-                        (snake_head[1] + (snake.down[1] * snake.step)) % game.height <= snake.step))
+                       ((((snake_head[0] + (snake.down[0] * game.gridsize)) % game.width),
+                         (snake_head[1] + (snake.down[1] * game.gridsize)) % game.height) in snake.positions or
+                        (snake_head[1] + (snake.down[1] * game.gridsize)) % game.height < game.gridsize))
         danger_left = (snake.direction == snake.left and
-                       ((((snake_head[0] + (snake.left[0] * snake.step)) % game.width),
-                         (snake_head[1] + (snake.left[1] * snake.step)) % game.height) in snake.positions or
-                        (snake_head[0] + (snake.left[0] * snake.step)) % game.height <= snake.step))
+                       ((((snake_head[0] + (snake.left[0] * game.gridsize)) % game.width),
+                         (snake_head[1] + (snake.left[1] * game.gridsize)) % game.height) in snake.positions or
+                        (snake_head[0] + (snake.left[0] * game.gridsize)) % game.height < game.gridsize))
         danger_right = (snake.direction == snake.right and
-                        ((((snake_head[0] + (snake.right[0] * snake.step)) % game.width),
-                          (snake_head[1] + (snake.right[1] * snake.step)) % game.height) in snake.positions or
-                         (snake_head[0] + (snake.right[0] * snake.step)) % game.height >= game.width - snake.step))
+                        ((((snake_head[0] + (snake.right[0] * game.gridsize)) % game.width),
+                          (snake_head[1] + (snake.right[1] * game.gridsize)) % game.height) in snake.positions or
+                         (snake_head[0] + (snake.right[0] * game.gridsize)) % game.height >= game.width - game.gridsize))
         dir_up = snake.direction == snake.up
         dir_down = snake.direction == snake.down
         dir_left = snake.direction == snake.left
@@ -78,7 +77,6 @@ class Agent():
                 state[i] = 1
             else:
                 state[i] = 0
-        print(state)
         return np.asarray(state)
     
     def set_reward(self, snake, crash):
@@ -104,7 +102,7 @@ class Agent():
                 target = reward + self.gamma * np.amax(self.model.predict(np.array([next_state]))[0])
             target_f = self.model.predict(np.array([state]))
             target_f[0][np.argmax(action)] = target
-            self.model.fit(np.array([state]), target_f, epochs=1, verbose=1)
+            self.model.fit(np.array([state]), target_f, epochs=1, verbose=0)
 
     def train_short_memory(self, state, action, reward, next_state, done):
         target = reward
