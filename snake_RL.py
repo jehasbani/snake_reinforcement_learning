@@ -13,9 +13,9 @@ def define_parameters():
     params = dict()
     params['epsilon_decay_linear'] = 1 / 75
     params['learning_rate'] = 0.0005
-    params['first_layer_size'] = 150  # neurons in the first layer
-    params['second_layer_size'] = 150  # neurons in the second layer
-    params['third_layer_size'] = 150  # neurons in the third layer
+    params['first_layer_size'] = 150
+    params['second_layer_size'] = 150
+    params['third_layer_size'] = 150
     params['n_attempts'] = 150
     params['memory_size'] = 2500
     params['batch_size'] = 500
@@ -29,6 +29,9 @@ class Game():
     def __init__(self, game_width, game_height):
         self.width = game_width
         self.height = game_height
+        self.gridsize = 20
+        self.grid_width = game_width / self.gridsize
+        self.grid_height = game_height / self.gridsize
         self.display = pygame.display.set_mode((game_width, game_height + 60))
         self.bg = pygame.image.load("img/background.png")
         self.crash = False
@@ -63,7 +66,7 @@ class Snake():
         self.length = 1
         self.has_eaten = False
         self.image = pygame.image.load('img/snakeBody.png')
-        self.step = 20
+        self.step = game.gridsize
 
     def get_head_position(self):
         return self.positions[0]
@@ -77,10 +80,10 @@ class Snake():
     def move(self, game):
         cur = self.get_head_position()
         x, y = self.direction
-        new = (((cur[0] + (x * self.step)) % game.width), (cur[1] + (y * self.step)) % game.height)
+        new = (((cur[0] + (x * game.gridsize)) % game.width), (cur[1] + (y * game.gridsize)) % game.height)
         if len(self.positions) > 2 and new in self.positions[2:]:
             game.crash = True
-        elif new[0] < self.step or new[0] > game.width - self.step or new[1] < self.step or new[1] > game.height - self.step:
+        elif new[0] < self.step or new[0] >= game.width - self.step or new[1] < self.step or new[1] >= game.height - self.step:
             game.crash = True
         else:
             self.positions.insert(0, new)
@@ -92,7 +95,9 @@ class Snake():
             self.has_eaten = True
             self.length += 1
             game.score += 1
-            food.randomize_position()
+            food.randomize_position(game)
+            self.draw(game)
+            food.draw(game)
         else:
             self.has_eaten = False
 
@@ -126,7 +131,10 @@ class Food():
         self.image = pygame.image.load('img/food2.png')
 
     def randomize_position(self, game):
-        self.position = (random.randint(0, game.width - 1), random.randint(0, game.height - 1))
+        self.position = (random.randint(1, game.grid_width - 2) * game.gridsize,
+                         random.randint(1, game.grid_height - 2) * game.gridsize)
+        if self.position in game.snake.positions:
+            self.randomize_position(game)
 
     def draw(self, game):
         game.display.blit(self.image, self.position)
@@ -135,12 +143,13 @@ class Food():
 
 def update_screen():
     pygame.display.update()
+    pygame.event.get()
 
 
 def initialize_game(game, snake, food, agent, batch_size):
     state_init1 = agent.get_state(game, snake, food)  # [0 0 0 0 0 0 0 0 0 1 0 0 0 1 0 0]
     action = to_categorical(randint(0, 3), num_classes=4)
-    snake.move(game)
+    snake.handle_action(action, food, game)
     state_init2 = agent.get_state(game, snake, food)
     reward1 = agent.set_reward(snake, game.crash)
     agent.remember(state_init1, action, reward1, state_init2, game.crash)
@@ -156,7 +165,7 @@ def get_record(score, record):
 
 def display(snake, food, game, record):
     game.display.fill((255, 255, 255))
-    game.draw(record)
+    game.draw(get_record(game.score, record))
     snake.draw(game)
     food.draw(game)
 
@@ -171,6 +180,7 @@ def plot_score(array_counter, array_score):
         line_kws={'color': 'green'}
     )
     ax.set(xlabel='games', ylabel='score')
+    plt.pause(0.05)
     plt.show()
 
 
@@ -193,7 +203,7 @@ def run(view, speed, params):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                quit()
+                sys.exit()
         # Initialize classes
         game = Game(440, 440)
         snake_agent = game.snake
@@ -201,15 +211,11 @@ def run(view, speed, params):
 
         # Perform first move
         initialize_game(game, snake_agent, food_n, agent, params['batch_size'])
-        # if view:
-        # display(snake_agent, food_n, game, record)
+        if view:
+            display(snake_agent, food_n, game, record)
 
         while not game.crash:
-            if view:
-                clock.tick(speed)
-                display(snake_agent, food_n, game, record)
-                # pygame.time.wait(speed)
-
+            clock.tick(10)
             if not params['train']:
                 agent.epsilon = 0
             else:
@@ -229,7 +235,12 @@ def run(view, speed, params):
 
             # perform new move and get new state
             snake_agent.handle_action(action, food_n, game)
+            record = get_record(game.score, record)
             state_new = agent.get_state(game, snake_agent, food_n)
+
+            if view:
+                display(snake_agent, food_n, game, record)
+                update_screen()
 
             # set reward for the new state
             reward = agent.set_reward(snake_agent, game.crash)
@@ -240,18 +251,17 @@ def run(view, speed, params):
                 # store the new data into a long term memory
                 agent.remember(state_old, action, reward, state_new, game.crash)
 
-            record = get_record(game.score, record)
-            update_screen()
-
         if params['train']:
             agent.replay_new(agent.memory, params['batch_size'])
+
         counter_games += 1
         print(f'Game {counter_games}      Score: {game.score}')
         score_plot.append(game.score)
         counter_plot.append(counter_games)
         if params['train']:
             agent.model.save_weights(params['weights_path'])
-        plot_score(counter_plot, score_plot)
+
+    plot_score(counter_plot, score_plot)
 
 
 if __name__ == '__main__':
