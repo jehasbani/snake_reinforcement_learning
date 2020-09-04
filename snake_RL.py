@@ -33,7 +33,7 @@ class Game():
         self.bg = pygame.image.load("img/background.png")
         self.crash = False
         self.snake = Snake(self)
-        self.food = Food()
+        self.food = Food(self)
         self.score = 0
 
     def draw(self, record):
@@ -43,27 +43,27 @@ class Game():
         text_score_number = myfont.render(str(self.score), True, (0, 0, 0))
         text_highest = myfont.render('HIGHEST SCORE: ', True, (0, 0, 0))
         text_highest_number = myfont_bold.render(str(record), True, (0, 0, 0))
-        self.gameDisplay.blit(text_score, (45, 440))
-        self.gameDisplay.blit(text_score_number, (120, 440))
-        self.gameDisplay.blit(text_highest, (190, 440))
-        self.gameDisplay.blit(text_highest_number, (350, 440))
-        self.gameDisplay.blit(self.bg, (10, 10))
+        self.display.blit(text_score, (45, 440))
+        self.display.blit(text_score_number, (120, 440))
+        self.display.blit(text_highest, (190, 440))
+        self.display.blit(text_highest_number, (350, 440))
+        self.display.blit(self.bg, (10, 10))
 
 
 class Snake():
     def __init__(self, game):
         self.positions = [((game.width / 2), (game.height / 2))]
-        self.direction = random.choice([game.up, game.down, game.left, game.right])
+        self.up = (0, -1)
+        self.down = (0, 1)
+        self.left = (-1, 0)
+        self.right = (1, 0)
+        self.direction = random.choice([self.up, self.down, self.left, self.right])
         self.color = (17, 24, 47)
         self.score = 0
         self.length = 1
         self.has_eaten = False
         self.image = pygame.image.load('img/snakeBody.png')
         self.step = 20
-        self.up = (0, -1)
-        self.down = (0, 1)
-        self.left = (-1, 0)
-        self.right = (1, 0)
 
     def get_head_position(self):
         return self.positions[0]
@@ -80,8 +80,7 @@ class Snake():
         new = (((cur[0] + (x * self.step)) % game.width), (cur[1] + (y * self.step)) % game.height)
         if len(self.positions) > 2 and new in self.positions[2:]:
             game.crash = True
-        elif new[0] < self.step or new[0] > game.width - self.step or new[1] < self.step or new[
-            1] > game.height - self.step:
+        elif new[0] < self.step or new[0] > game.width - self.step or new[1] < self.step or new[1] > game.height - self.step:
             game.crash = True
         else:
             self.positions.insert(0, new)
@@ -114,23 +113,23 @@ class Snake():
     def draw(self, game):
         if not game.crash:
             for p in self.positions:
-                game.gameDisplay.blit(self.image, p)
+                game.display.blit(self.image, p)
             update_screen()
         else:
             pygame.time.wait(300)
 
 
 class Food():
-    def __init__(self):
+    def __init__(self, game):
         self.position = (0, 0)
-        self.randomize_position()
+        self.randomize_position(game)
         self.image = pygame.image.load('img/food2.png')
 
     def randomize_position(self, game):
         self.position = (random.randint(0, game.width - 1), random.randint(0, game.height - 1))
 
     def draw(self, game):
-        game.gameDisplay.blit(self.image, self.position)
+        game.display.blit(self.image, self.position)
         update_screen()
 
 
@@ -141,7 +140,7 @@ def update_screen():
 def initialize_game(game, snake, food, agent, batch_size):
     state_init1 = agent.get_state(game, snake, food)  # [0 0 0 0 0 0 0 0 0 1 0 0 0 1 0 0]
     action = to_categorical(randint(0, 3), num_classes=4)
-    snake.do_move(action, snake.x, snake.y, game, food, agent)
+    snake.move(game)
     state_init2 = agent.get_state(game, snake, food)
     reward1 = agent.set_reward(snake, game.crash)
     agent.remember(state_init1, action, reward1, state_init2, game.crash)
@@ -156,7 +155,7 @@ def get_record(score, record):
 
 
 def display(snake, food, game, record):
-    game.gameDisplay.fill((255, 255, 255))
+    game.display.fill((255, 255, 255))
     game.draw(record)
     snake.draw(game)
     food.draw(game)
@@ -177,6 +176,7 @@ def plot_score(array_counter, array_score):
 
 def run(view, speed, params):
     pygame.init()
+    clock = pygame.time.Clock()
     agent = Agent(params)
     weights_filepath = params['weights_path']
 
@@ -200,52 +200,55 @@ def run(view, speed, params):
         food_n = game.food
 
         # Perform first move
-        initialize_game(snake_agent, game, food_n, agent, params['batch_size'])
-        if view:
-            display(snake_agent, food_n, game, record)
+        initialize_game(game, snake_agent, food_n, agent, params['batch_size'])
+        # if view:
+        # display(snake_agent, food_n, game, record)
 
-            while not game.crash:
-                if not params['train']:
-                    agent.epsilon = 0
-                else:
-                    # agent.epsilon is set to give randomness to actions
-                    agent.epsilon = 1 - (counter_games * params['epsilon_decay_linear'])
+        while not game.crash:
+            if view:
+                clock.tick(speed)
+                display(snake_agent, food_n, game, record)
+                # pygame.time.wait(speed)
 
-                # get old state
-                state_old = agent.get_state(game, snake_agent, food_n)
+            if not params['train']:
+                agent.epsilon = 0
+            else:
+                # agent.epsilon is set to give randomness to actions
+                agent.epsilon = 1 - (counter_games * params['epsilon_decay_linear'])
 
-                # perform random actions based on agent.epsilon, or choose the action
-                if randint(0, 1) < agent.epsilon:
-                    action = to_categorical(randint(0, 3), num_classes=4)
-                else:
-                    # predict action based on the old state
-                    prediction = agent.model.predict(state_old.reshape((1, 11)))
-                    action = to_categorical(np.argmax(prediction[0]), num_classes=4)
+            # get old state
+            state_old = agent.get_state(game, snake_agent, food_n)
 
-                # perform new move and get new state
-                snake_agent.handle_action(action, food_n, game)
-                state_new = agent.get_state(game, snake_agent, food_n)
+            # perform random actions based on agent.epsilon, or choose the action
+            if randint(0, 1) < agent.epsilon:
+                action = to_categorical(randint(0, 3), num_classes=4)
+            else:
+                # predict action based on the old state
+                prediction = agent.model.predict(state_old.reshape((1, 12)))
+                action = to_categorical(np.argmax(prediction[0]), num_classes=4)
 
-                # set reward for the new state
-                reward = agent.set_reward(snake_agent, game.crash)
+            # perform new move and get new state
+            snake_agent.handle_action(action, food_n, game)
+            state_new = agent.get_state(game, snake_agent, food_n)
 
-                if params['train']:
-                    # train short memory base on the new action and state
-                    agent.train_short_memory(state_old, action, reward, state_new, game.crash)
-                    # store the new data into a long term memory
-                    agent.remember(state_old, action, reward, state_new, game.crash)
-
-                record = get_record(game.score, record)
-                if view:
-                    display(snake_agent, food_n, game, record)
-                    pygame.time.wait(speed)
+            # set reward for the new state
+            reward = agent.set_reward(snake_agent, game.crash)
 
             if params['train']:
-                agent.replay_new(agent.memory, params['batch_size'])
-            counter_games += 1
-            print(f'Game {counter_games}      Score: {game.score}')
-            score_plot.append(game.score)
-            counter_plot.append(counter_games)
+                # train short memory base on the new action and state
+                agent.train_short_memory(state_old, action, reward, state_new, game.crash)
+                # store the new data into a long term memory
+                agent.remember(state_old, action, reward, state_new, game.crash)
+
+            record = get_record(game.score, record)
+            update_screen()
+
+        if params['train']:
+            agent.replay_new(agent.memory, params['batch_size'])
+        counter_games += 1
+        print(f'Game {counter_games}      Score: {game.score}')
+        score_plot.append(game.score)
+        counter_plot.append(counter_games)
         if params['train']:
             agent.model.save_weights(params['weights_path'])
         plot_score(counter_plot, score_plot)
