@@ -65,6 +65,7 @@ class Snake():
         self.score = 0
         self.length = 1
         self.has_eaten = False
+        self.bump_itself = False
         self.image = pygame.image.load('img/snakeBody.png')
         self.step = game.gridsize
 
@@ -83,6 +84,7 @@ class Snake():
         new = (((cur[0] + (x * game.gridsize)) % game.width), (cur[1] + (y * game.gridsize)) % game.height)
         if len(self.positions) > 2 and new in self.positions[2:]:
             game.crash = True
+            self.bump_itself = True
         elif new[0] < self.step or new[0] >= game.width - self.step or new[1] < self.step or new[1] >= game.height - self.step:
             game.crash = True
         else:
@@ -213,6 +215,7 @@ def run(view, speed, params):
         initialize_game(game, snake_agent, food_n, agent, params['batch_size'])
         if view:
             display(snake_agent, food_n, game, record)
+            pygame.time.wait(speed)
 
         while not game.crash:
             clock.tick(10)

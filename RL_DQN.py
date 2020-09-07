@@ -82,7 +82,10 @@ class Agent():
     def set_reward(self, snake, crash):
         self.reward = 0
         if crash:
-            self.reward = -10
+            if snake.bump_itself:
+                self.reward = -20
+            else:
+                self.reward = -10
             return self.reward
         if snake.has_eaten:
             self.reward = 10
