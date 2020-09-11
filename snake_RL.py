@@ -262,7 +262,8 @@ def run(view, speed, params):
         score_plot.append(game.score)
         counter_plot.append(counter_games)
         if params['train']:
-            agent.model.save_weights(params['weights_path'])
+            if game.score == record:
+                agent.model.save_weights(f'weights/weights.hdf5')
 
     plot_score(counter_plot, score_plot)
 
